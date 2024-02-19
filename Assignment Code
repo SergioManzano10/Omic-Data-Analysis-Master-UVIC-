@@ -244,4 +244,85 @@
 ####### RESULTS #######
 	
 	# sigmoid_colon --> 16214  # stomach --> 7995
+
+
+
+#####------------------------------------------------------------------------------------------TASK 3---------------------------------------------------------------------------------------------#####
+##### Focus on regulatory elements that are located on chromosome 1, and generate a file regulatory.elements.starts.tsv that contains the name of the regulatory region (i.e. the name of the original 
+##### ATAC-seq peak) and the start (5') coordinate of the region.
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+
+# Save the all the regulatory elements (of both tissues) in the same file
+
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u > sigmoid_colon_reg_elements
 	
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u > stomach_reg_elements
+	
+	cat sigmoid_colon_reg_elements stomach_reg_elements > all_reg_elements
+
+
+# Make the selection
+
+	awk 'BEGIN{FS=OFS="\t"}$1=="chr1"{print $4, $2}' all_reg_elements > regulatory.elements.starts.tsv
+
+
+
+#####------------------------------------------------------------------------------------------TASK 4---------------------------------------------------------------------------------------------#####
+##### Focus on protein-coding genes located on chromosome 1. From the BED file of gene body coordinates that you generated here, prepare a tab-separated file called gene.starts.tsv which will store 
+##### the name of the gene in the first column, and the start coordinate of the gene on the second column (REMEMBER: for genes located on the minus strand, the start coordinate will be at the 3'). 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Make the selection and save in a file called gene.starts.tsv
+
+	awk 'BEGIN{FS=OFS="\t"}$1=="chr1"{if ($6=="+"){start=$2} else {start=$3}; print $4, start}' ../ATAC-seq/annotation/gencode.v24.protein.coding.gene.body.bed > gene.starts.tsv
+
+
+
+#####------------------------------------------------------------------------------------------TASK 5---------------------------------------------------------------------------------------------#####
+##### Download or copy this python script inside the epigenomics_uvic/bin folder. 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Go to bin folder
+	cd ../bin
+
+# Paste the script that is in called get.distance
+
+	nano get.distance.py
+
+# Check if the script works
+
+	## Modify the script and check if it runs with the following command (inside regulatory elements folder)
+
+		python ../bin/get.distance.py --input gene.starts.tsv --start 980000 	####### The output should be:  ENSG00000187642.9	982093 2093 #######
+
+
+
+#####------------------------------------------------------------------------------------------TASK 6---------------------------------------------------------------------------------------------#####
+##### For each regulatory element contained in the file regulatory.elements.starts.tsv, retrieve the closest gene and the distance to the closest gene using the python script you created above. 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Inside regulatory elements folder, run the fllowing command
+
+	cat regulatory.elements.starts.tsv | while read element start; do 
+	   python ../bin/get.distance.py --input gene.starts.tsv --start $start; 
+	done > regulatoryElements.genes.distances.tsv
+
+
+#####------------------------------------------------------------------------------------------TASK 7---------------------------------------------------------------------------------------------#####
+##### Use R to compute the mean and the median of the distances stored in regulatoryElements.genes.distances.tsv.
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# See the Rscript called regulatoryElements_meanandmedian
+
+	## setwd("C:/Users/smanz/OneDrive/Escritorio/OMIC_DATA_ANALYSIS/EPIGENOMICS/ChipSeq/First_TASK")
+	
+	## regulatoryElements <- read.delim("regulatoryElements.genes.distances.tsv", sep = "\t", header = F)
+	
+	
+	## colnames(regulatoryElements) <- c("closest gene", "start of the gene", "distance RE")
+	
+	## View(regulatoryElements)
+	
+	## mean(regulatoryElements$`distance RE`) # Mean of the distance: 63393.14
+	## median(regulatoryElements$`distance RE`) # Median of the distance: 31162

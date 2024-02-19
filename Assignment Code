@@ -24,8 +24,104 @@
 
 #####-----------------------------------------------------------------------------------------QUESTION 2------------------------------------------------------------------------------------------#####
 ##### Retrieve from a newly generated metadata file ATAC-seq peaks (bigBed narrow, pseudoreplicated peaks, assembly GRCh38) for stomach and sigmoid_colon for the same donor used in the previous   
-##### sections. 
+##### sections. Make sure your md5sum values coincide with the ones provided by ENCODE.
 #####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
 
-# Download the data
-../bin/download.metadata.sh "https://www.encodeproject.org/metadata/?replicates.library.biosample.donor.uuid=d370683e-81e7-473f-8475-7716d027849b&status=released&status=submitted&status=in+progress&assay_title=ATAC-seq&biosample_ontology.term_name=sigmoid+colon&biosample_ontology.term_name=stomach&type=Experiment"
+# Create the metadata file
+	../bin/download.metadata.sh "https://www.encodeproject.org/metadata/?replicates.library.biosample.donor.uuid=d370683e-81e7-473f-8475-7716d027849b&status=released&status=submitted&status=in+progress&assay_title=ATAC-seq&biosample_ontology.term_name=sigmoid+colon&biosample_ontology.term_name=stomach&type=Experiment"
+
+# Download peak calling and fold-change signal files
+
+	grep -F "bigBed_narrowPeak" metadata.tsv |\
+	grep -F "pseudoreplicated_peaks" |\
+	grep -F "GRCh38" |\
+	awk 'BEGIN{FS=OFS="\t"}{print $1, $11}' |\
+	sort -k2,2 -k1,1r |\
+	sort -k2,2 -u > analyses/bigBed.peaks.ids.txt
+	
+	
+	cut -f1 analyses/bigBed.peaks.ids.txt |\
+	while read filename; do
+	  wget -P data/bigBed.files "https://www.encodeproject.org/files/$filename/@@download/$filename.bigBed"
+	done
+
+# Check the integrity of the downloaded files
+
+	for file_type in bigBed; do
+	
+	  ## retrieve original MD5 hash from the metadata
+	  ../bin/selectRows.sh <(cut -f1 analyses/"$file_type".*.ids.txt) metadata.tsv | cut -f1,46 > data/"$file_type".files/md5sum.txt
+	
+	  ## compute MD5 hash on the downloaded files 
+	  cat data/"$file_type".files/md5sum.txt |\
+	  while read filename original_md5sum; do 
+	    md5sum data/"$file_type".files/"$filename"."$file_type" |\
+	    awk -v filename="$filename" -v original_md5sum="$original_md5sum" 'BEGIN{FS=" "; OFS="\t"}{print filename, original_md5sum, $1}' 
+	  done > tmp 
+	  mv tmp data/"$file_type".files/md5sum.txt
+	
+	  ## make sure there are no files for which original and computed MD5 hashes differ
+	  awk '$2!=$3' data/"$file_type".files/md5sum.txt
+	
+	done
+
+#####-----------------------------------------------------------------------------------------QUESTION 3------------------------------------------------------------------------------------------#####
+##### For each tissue, run an intersection analysis using BEDTools: report 1) the number of peaks that intersect promoter regions, 2) the number of peaks that fall outside gene coordinates (whole 
+##### gene body, not just the promoter regions). 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Convert bigBed files of H3K4me3 peaks to BED files with the bigBedToBed command:
+
+	mkdir data/bed.files
+	
+	cut -f1 analyses/bigBed.peaks.ids.txt |\
+	while read filename; do
+	  bigBedToBed data/bigBed.files/"$filename".bigBed data/bed.files/"$filename".bed
+	done
+
+# Download from here the list of promoters ([-2 kb, +2 Kb] from TSS) of protein-coding genes. Store this file inside the annotation folder.
+
+	mkdir annotation
+	
+	cd annotation
+	
+	cp ../../ChIP-seq/annotation/gencode.v24.protein.coding.non.redundant.TSS.bed .
+
+# 1) The number of peaks that intersect promoter regions
+
+	cut -f-2 analyses/bigBed.peaks.ids.txt |\
+	while read filename tissue; do
+	  echo "$tissue"
+	  bedtools intersect -a data/bed.files/"$filename".bed  -b annotation/gencode.v24.protein.coding.non.redundant.TSS.bed -u |\
+	  wc -l
+	done
+
+	####### RESULTS #######
+
+	# sigmoid_colon --> 47871  # stomach --> 44749
+
+
+
+# 2) The number of peaks that fall outside gene coordinates (whole gene body, not just the promoter regions).
+
+# Download the BED file with gene body coordinates of protein-coding genes
+
+	wget -P annotation "https://www.encodeproject.org/files/gencode.v24.primary_assembly.annotation/@@download/gencode.v24.primary_assembly.annotation.gtf.gz"
+
+# Uncompress the file
+
+	gunzip annotation/gencode.v24.primary_assembly.annotation.gtf.gz
+
+# The number of peaks that fall outside gene coordinates (whole gene body, not just the promoter regions)
+
+	cut -f-2 analyses/bigBed.peaks.ids.txt |\
+	while read filename tissue; do
+	  echo "$tissue"
+	  bedtools intersect -a data/bed.files/"$filename".bed  -b annotation/gencode.v24.protein.coding.gene.body.bed -v |\
+	  wc -l
+	done
+	
+	####### RESULTS #######
+	
+	# sigmoid_colon --> 37035  # stomach --> 34537
+	

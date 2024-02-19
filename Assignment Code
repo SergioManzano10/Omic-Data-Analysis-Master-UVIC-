@@ -10,15 +10,18 @@
 #####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
 
 # Run the container	
-  sudo docker run -v $PWD:$PWD -w $PWD --rm -it dgarrimar/epigenomics_course
+
+	sudo docker run -v $PWD:$PWD -w $PWD --rm -it dgarrimar/epigenomics_course
 
 # Change the directory
+
 	cd ATAC-seq
 
 # Create the new folders
+
 	mkdir analyses
-  mkdir data
-  mkdir data/bigBed.files data/bigWig.files
+	mkdir data
+	mkdir data/bigBed.files data/bigWig.files
 
 
 
@@ -124,4 +127,116 @@
 	####### RESULTS #######
 	
 	# sigmoid_colon --> 37035  # stomach --> 34537
+
+
+
+#######################################################################################################################################################################################################
+################################################################################ 5. Distal regulatory activity ########################################################################################
+#######################################################################################################################################################################################################
+
+##### From section 4., you should have obtained a set of ATAC-seq peaks in stomach and sigmoid_colon that lie outside gene coordinates. We will use these peaks as a starting point to build a ##### catalogue of distal regulatory regions.
+
+
+#####------------------------------------------------------------------------------------------TASK 1---------------------------------------------------------------------------------------------#####
+##### Create a folder regulatory_elements inside epigenomics_uvic. This will be the folder where you store all your subsequent results.
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Create the folders
+
+	mkdir regulatory_elements
+	cd regulatory_elements
+
+
+#####------------------------------------------------------------------------------------------TASK 2---------------------------------------------------------------------------------------------#####
+##### Distal regulatory regions are usually found to be flanked by both H3K27ac and H3K4me1. From your starting catalogue of open regions in each tissue, select those that overlap peaks of H3K27ac 
+##### AND H3K4me1 in the corresponding tissue. You will get a list of candidate distal regulatory elements for each tissue. How many are they?
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Download the needed files
+
+	../bin/download.metadata.sh "https://www.encodeproject.org/metadata/?replicates.library.biosample.donor.uuid=d370683e-81e7-473f-8475-7716d027849b&status=released&status=submitted&status=in+progress&assay_title=Histone+ChIP-seq&target.label=H3K27ac&target.label=H3K4me1&biosample_ontology.term_name=sigmoid+colon&biosample_ontology.term_name=stomach&type=Experiment"
+
+# Download peak calling and fold-change signal files
+
+	## Create a new folder to store the data
+
+		mkdir analyses
+	
+	## Select the needed files for H3K4me1 
+	
+		grep -F H3K4me1 metadata.tsv |\
+		grep -F "bigBed_narrowPeak" |\
+		grep -F "pseudoreplicated_peaks" |\
+		grep -F "GRCh38" |\
+		awk 'BEGIN{FS=OFS="\t"}{print $1, $11, $23}' |\
+		sort -k2,2 -k1,1r |\
+		sort -k2,2 -u > analyses/bigBed.peaks.ids.txt
+	
+	
+	## Select the needed files for H3K27ac
+	
+		grep -F H3K27ac metadata.tsv |\
+		grep -F "bigBed_narrowPeak" |\
+		grep -F "pseudoreplicated_peaks" |\
+		grep -F "GRCh38" |\
+		awk 'BEGIN{FS=OFS="\t"}{print $1, $11, $23}' |\
+		sort -k2,2 -k1,1r |\
+		sort -k2,2 -u >> analyses/bigBed.peaks.ids.txt
+
+	## Download the selected files
+		
+		cut -f1 analyses/bigBed.peaks.ids.txt |\
+		while read filename; do
+		  wget -P data/bigBed.files "https://www.encodeproject.org/files/$filename/@@download/$filename.bigBed"
+		done
+	
+# Check the integrity of the downloaded files:
+	
+	for file_type in bigBed; do
+		
+		### retrieve original MD5 hash from the metadata
+		  	../bin/selectRows.sh <(cut -f1 analyses/"$file_type".*.ids.txt) metadata.tsv | cut -f1,46 > data/"$file_type".files/md5sum.txt
+		
+		  ### compute MD5 hash on the downloaded files 
+			cat data/"$file_type".files/md5sum.txt |\
+			  while read filename original_md5sum; do 
+			    md5sum data/"$file_type".files/"$filename"."$file_type" |\
+			    awk -v filename="$filename" -v original_md5sum="$original_md5sum" 'BEGIN{FS=" "; OFS="\t"}{print filename, original_md5sum, $1}' 
+			  done > tmp 
+			  mv tmp data/"$file_type".files/md5sum.txt
+		
+		  ### make sure there are no files for which original and computed MD5 hashes differ
+		  	awk '$2!=$3' data/"$file_type".files/md5sum.txt
+		
+		done
+	
+# Go to ATAC-seq folder
+	
+	cd ../ATAC-seq
+	
+	# Guardar los ATAC-seq peaks in stomach and sigmoid_colon that lie outside gene coordinates en un archivo llamado ..outgenebody.bed dentro de la carpeta regulatory elements.
+	
+	cut -f-2 analyses/bigBed.peaks.ids.txt | while read filename tissue; do bedtools intersect -a data/bed.files/"$filename".bed  -b annotation/gencode.v24.protein.coding.gene.body.bed -v | cut -f-4 > ../regulatory_elements/$tissue.outgenebody.bed; done
+	
+	# Acceder a la carpeta regulatory elements
+	
+	cd ../regulatory_elements
+	
+	# Convertir los rchivos bigBed en bed
+	
+	mkdir data/bed.files
+	
+	cut -f1 analyses/bigBed.peaks.ids.txt |\
+	while read filename; do
+	  bigBedToBed data/bigBed.files/"$filename".bigBed data/bed.files/"$filename".bed
+	done
+	
+	
+	# Intersect sigmoid colon
+	
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u | wc -l # 16214
+	
+	# Intersect stomach
+	
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u | wc -l # 7995
 	

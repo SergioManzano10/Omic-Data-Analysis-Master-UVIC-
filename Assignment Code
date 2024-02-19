@@ -1,0 +1,31 @@
+# Sergio Manzano Sánchez
+# Epigenomics: PRACTICAL ASSIGNMENT
+
+#######################################################################################################################################################################################################
+################################################################################ 4. EN‐TEx ATAC‐seq data: downstream analyses ##########################################################################
+#######################################################################################################################################################################################################
+
+#####------------------------------------------------------------------------------------------QUESTION 1-----------------------------------------------------------------------------------------#####
+##### Move to folder ATAC-seq, and create folders to store bigBed data files and peaks analyses files. 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Run the container	
+  sudo docker run -v $PWD:$PWD -w $PWD --rm -it dgarrimar/epigenomics_course
+
+# Change the directory
+	cd ATAC-seq
+
+# Create the new folders
+	mkdir analyses
+  mkdir data
+  mkdir data/bigBed.files data/bigWig.files
+
+
+
+#####-----------------------------------------------------------------------------------------QUESTION 2------------------------------------------------------------------------------------------#####
+##### Retrieve from a newly generated metadata file ATAC-seq peaks (bigBed narrow, pseudoreplicated peaks, assembly GRCh38) for stomach and sigmoid_colon for the same donor used in the previous   
+##### sections. 
+#####---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#####
+
+# Download the data
+../bin/download.metadata.sh "https://www.encodeproject.org/metadata/?replicates.library.biosample.donor.uuid=d370683e-81e7-473f-8475-7716d027849b&status=released&status=submitted&status=in+progress&assay_title=ATAC-seq&biosample_ontology.term_name=sigmoid+colon&biosample_ontology.term_name=stomach&type=Experiment"

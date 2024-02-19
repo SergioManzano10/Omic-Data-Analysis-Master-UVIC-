@@ -214,15 +214,15 @@
 	
 	cd ../ATAC-seq
 	
-	# Guardar los ATAC-seq peaks in stomach and sigmoid_colon that lie outside gene coordinates en un archivo llamado ..outgenebody.bed dentro de la carpeta regulatory elements.
+# Save the ATAC-seq peaks in stomach and sigmoid_colon that lie outside gene coordinates in a file called *outgenebody.bed inside the regulatory elements folder.
 	
 	cut -f-2 analyses/bigBed.peaks.ids.txt | while read filename tissue; do bedtools intersect -a data/bed.files/"$filename".bed  -b annotation/gencode.v24.protein.coding.gene.body.bed -v | cut -f-4 > ../regulatory_elements/$tissue.outgenebody.bed; done
 	
-	# Acceder a la carpeta regulatory elements
+# Go to regulatory elements folder
 	
 	cd ../regulatory_elements
 	
-	# Convertir los rchivos bigBed en bed
+# Convert bigBed files into bed files
 	
 	mkdir data/bed.files
 	
@@ -232,11 +232,16 @@
 	done
 	
 	
-	# Intersect sigmoid colon
+# Intersect sigmoid colon
 	
 	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u | wc -l # 16214
 	
-	# Intersect stomach
+# Intersect stomach
 	
 	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u | wc -l # 7995
+
+
+####### RESULTS #######
+	
+	# sigmoid_colon --> 16214  # stomach --> 7995
 	

@@ -234,16 +234,18 @@
 	
 # Intersect sigmoid colon
 	
-	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u | wc -l # 16214
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed -u | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u | wc -l # 14215
 	
 # Intersect stomach
 	
-	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u | wc -l # 7995
+	bedtools intersect  -a stomach.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed -u | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u | wc -l # 8022
 
 
 ####### RESULTS #######
 	
-	# sigmoid_colon --> 16214  # stomach --> 7995
+	# sigmoid_colon --> 14215  # stomach --> 8022
+
+
 
 
 
@@ -255,16 +257,17 @@
 
 # Save the all the regulatory elements (of both tissues) in the same file
 
-	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u > sigmoid_colon_reg_elements
+	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF724ZOF.bed -u | bedtools intersect -a stdin -b data/bed.files/ENCFF872UHN.bed -u > sigmoid_colon_reg_elements
 	
-	bedtools intersect  -a sigmoid_colon.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u > stomach_reg_elements
+	bedtools intersect  -a stomach.outgenebody.bed -b data/bed.files/ENCFF844XRN.bed -u | bedtools intersect -a stdin -b data/bed.files/ENCFF977LBD.bed -u > stomach_reg_elements
 	
-	cat sigmoid_colon_reg_elements stomach_reg_elements > all_reg_elements
 
 
 # Make the selection
 
-	awk 'BEGIN{FS=OFS="\t"}$1=="chr1"{print $4, $2}' all_reg_elements > regulatory.elements.starts.tsv
+	grep -w chr1 sigmoid_colon_reg_elements | awk '{print $4 "\t" $2}' > sigmoid.regulatory.elements.starts.tsv # 1521
+
+	grep -w chr1 stomach_reg_elements | awk '{print $4 "\t" $2}' > stomach.regulatory.elements.starts.tsv # 987
 
 
 
@@ -286,7 +289,7 @@
 # Go to bin folder
 	cd ../bin
 
-# Paste the script that is in called get.distance
+# Paste the script that is in the file called get.distance.py
 
 	nano get.distance.py
 

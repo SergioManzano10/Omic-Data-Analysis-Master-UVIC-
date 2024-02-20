@@ -307,9 +307,7 @@
 
 # Inside regulatory elements folder, run the fllowing command
 
-	cat regulatory.elements.starts.tsv | while read element start; do 
-	   python ../bin/get.distance.py --input gene.starts.tsv --start $start; 
-	done > regulatoryElements.genes.distances.tsv
+	for tissue in stomach sigmoid; do   cat "$tissue".regulatory.elements.starts.tsv | while read element start; do     python ../bin/get.distance.py --input gene.starts.tsv --start "$start";   done > "$tissue".regulatory.elements.genes.distances.tsv; done
 
 
 #####------------------------------------------------------------------------------------------TASK 7---------------------------------------------------------------------------------------------#####

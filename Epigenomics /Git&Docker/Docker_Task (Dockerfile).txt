@@ -1,0 +1,24 @@
+# Start from debian linux image (DockerHub)
+FROM debian:stable
+
+# Add custom label
+LABEL maintainer "Sergio Manzano Sanchez <smanzano250800@gmail.com>" \
+      version "0.1" \
+      description "The Docker container created from this image will be able to execute a Python script that allows you to classify a sequence as DNA or RNA
+ and to count the percentage of each base"
+
+# Install Python (after apt-get update)
+RUN apt-get update && apt-get install -y python3
+
+
+# Make the folder '/scripts' in the container
+RUN mkdir /scripts
+
+# Copy 'seqClass.py' to the folder 'scripts' in the container
+ADD scripts/seqClass.py /scripts
+
+# Give execution permissions to python script
+RUN chmod +x /scripts/seqClass.py
+
+# Add /scripts folder to the PATH environment variable
+ENV PATH="$PATH:/scripts"

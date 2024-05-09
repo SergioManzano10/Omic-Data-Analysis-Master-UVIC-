@@ -1,0 +1,124 @@
+---
+title: "GWAS ANALYSIS OF ALZHEIMER'S DISEASE"
+author: "Sergio Manzano"
+date: "2023-12-14"
+output: pdf_document
+---
+
+
+## INTRODUCTION
+
+A genome-wide association study (GWAS) is a research approach used to identify genomic variants statistically associated with a disease risk or trait. In this case, the data used correspond to data from the Alzheimer’s Disease Neuroimaging Initiative (ADNI). Specifically we have used data from the first batch of ADNI, which contains information of around 800 individual (200 normal controls, 400 individual with cognitive decline, and 200 mild AD). 
+
+## DESCRIPTIVE ANALYSIS OF PHENOTYPE AND COVARIATES.
+
+As we have previously said, we have worked with the data corresponding to patients that show Late Mild Cognitive Impairment (LMCI), Alzheimer Disease (AD) and cognitive normal (CN). For each individual we have information related to: the date in which they were examined, the age (75 years on average), the reported sex (342 female and 477 male), the years of education (15 years on average) and whether they present the *Apoe4* gene (419 doesn´t have the gene, 312 have one allele and 88 have two allele). 
+
+
+## USED PACKAGES AND FUNCTIONS
+
+* snpStats: Used to read the files.
+* SNPRelate: Used to perform identity-by-descent (IBD) analysis, computing kinship within the sample. The package requires a data in a GDS format that is obtained with the function snpgdsBED2GDS. In addition, IBD analysis requires SNPs that are not in LD (uncorrelated). The function snpgdsLDpruning iteratively removes adjacent SNPs that exceed an LD threshold in a sliding window (here LD threshold = 0.2).
+* qqman: Used to create the ManhattanPlot.
+* SNPassoc: Used to perform SNP association analysis.
+* MASS: Used to create the model using the AD state and different polymorphisms.
+* PredictABEL: Used to create the genetic score.
+
+
+
+## METHODS
+
+Before doing the association study, it is necessary to perform quality control (QC) of the genomic data at the SNP and individuals level. After that, we can build the adjusted model, the Manhattan Plot, the table containing different SNPs information and the risk score.
+
+### **Quality control of SNPs**
+
+When we perform QC for SNPs, we eliminate: SNPs with a high rate of missing, rare SNPs (having low minor allele frequency (MAF)) and SNPs that do not pass the HWE test.
+
+In this study, markers with a **call rate less than 95%** have been removed from association analyses. **Markers of low MAF (<5%)** have been also filtered. The significance threshold rejecting a SNP for not being in HWE can may vary, but in this case *we have keept* the SNPs which have a **z.HWE < 3.33** (is the same than having a P-value = 0.001).
+
+
+
+### **Quality control of individuals**
+
+A QC of individuals is also needed. We must find individuals with: a high rate of missing, discordant reported and genomic sex (sex discrepancies), outlying missing genotype or heterozygosity rate, duplicated or related individuals and individuals of divergent ancestry from the sample.
+
+In this QC of individuals we also have to remove individuals with a **call rate less than 95%**.
+
+Gender is usually inferred from the **heterozygosity of chromosome X**; males have an expected heterozygosity of 0 and females of 0.30. In this study we have considered that sex discrepancies exist when male have heterozygosity > 0.2 and female have heterozygosity < 0.2 (see **Sex discordancies** plot in "Appendix").
+
+Moreover, it is necessary to delete the individuals with **outlying heterozygosity rate**. To do that, we have computed "hetF" and then compared to the normal heterozygosity. Individual whose "hetF" is outside the band (+/-) 0.1 are considered sample outliers and correspond to those having a heterozygosity rate lower than 0.3, being deleted.
+
+GWAS are studies that are typically based on population samples. Therefore, **close familial relatedness** between individual is not representative of the sample. Therefore, we have removed individual whose relatedness is higher than expected. It has been done by performing identity-by-descent (IBD) analysis, computing kinship within the sample. Once we have the ibd and kinship values, we have filtered out those that have a kinship > 0.1 and eliminated them (we have considered them to be related).
+
+The main source of genetic differences between individuals is **ancestry**. Therefore, it is important to check that there are not individuals with unexpected genetic differences in the sample. Ancestral differences can be inferred with principal component analysis (PCA) on the genomic data. Individuals with outlying ancestry can be removed from the study while smaller differences in ancestry can be adjusted in the association models, including the first principal components as covariates (as we have done with the 2 first principal components) (see **Ancestry** plot in "Appendix").
+
+### **Adjusted regression model and Manhattan Plot**
+
+To evaluate a possible association between different polymorphisms and AD, we have built a regression model that has been adjusted with the different covariates. Later, the p.values corresponding to each polymorphism have been extracted and, applying the Bonferroni correction, those with a p.value < 10 e-6 have been selected. These values have been represented on a Manhattan Plot.
+
+
+### **Genetic Score**
+
+A genetic score, also called a polygenic risk score or genetic risk score, is given by the number of risk alleles that an individual carries. It is used to assess the collective prediction of the phenotype risk associated with multiple SNPs. To create it we have used some polymorphisms that may be related to AD (previously verified in this study).
+
+
+
+## RESULTS
+
+### 1. **Adjusted model and Manhattan Plot.**
+
+After the QC, we have obtained 736 individuals and  521770 SNPs that pass the quality control and with these ones, we have performed the association analysis to the AD. 
+
+To do that, we have built an adjusted model **AD ~ AGE + YEARS_EDUCATION + APOE4 + REPORTED_SEX + PC1 + PC2** to which the Bonferroni correction has been applied, with a p-value = **10 e-8**, but without having any significant SNP that would be related with AD. Because of that we have applied a p-value = **10 e-5**, having 10 significant SNPs that would be related with AD, which are: **rs4953672, rs4247181, rs4472075, rs793291, rs4693092, rs17027976, rs17028008, rs12512622, rs1421761, rs1012995**.
+
+
+These polymorphisms are *highlighted in green* on the **Manhattan Plot**, where we can see the chromosome location of each one.
+
+![Manhattan Plot](Manhattan Plot.png){width=50%}
+
+
+### 2. **Table with SNPs information**.
+
+As we have previously said, with a p-value = **10 e-8**, we haven´t obtained any significant SNP. Because of that we have applied a p-value = **10 e-5**, obtaining **10 SNPs that have statistical significance**.
+
+These SNPs are shown in the table at the end of the document, together with other parameters: *chromosome (CHR), position (BP), p.value (P), Major Allele Frequency (MajorAF_freq_B), Minor Allele Frequency (MinorAF_freq_A), odds ratio in the dominant (dom_OR), recesive (rec_OR) and log additive (log_OR) models.*
+
+Regarding the polymorphisms, we found that each of them affects a multitude of genes, which have a common contribution in AD at different levels.
+
+
+### 3. **Genetic Score**
+
+
+The genetic score uses genetic information to evaluate individual's relative risk for certain diseases (this is only one example, it has more uses). To do that, a multivariate regression model (with significant SNPs) is performed in order to select the SNPs that best predict the disease.
+
+After computing the regression model, we have obtained that the most influential polymorphisms are: **rs4953672, rs4472075, rs793291, rs4693092, rs12512622, rs1421761, rs1012995**. 
+
+Taking these polymorphisms into account, we have computed the risk score, obtaining that the majority of individuals have between 9 and 11 risk alleles (see **Histogram of Score** plot).
+
+Finally, we have performed a ROC plot in order to validate that the score is a good predictor of the AD. After doing this, we have obtained an AUC = 0.726, indicating that it is a good predictor (see **ROC** plot).
+
+![Histogram of Score](Risk Score Distrbution.png){width=50%}
+![ROC curve](ROC plot.png){width=50%}
+
+
+
+## DISCUSSION AND CONCLUSIONS
+
+GWAS studies allow the identification of SNPs that may be relevant for the diagnosis and treatment of certain diseases. However, it is not an easy task because there may be problems in sequencing, which reduces the sample size and forces both SNPs and individuals to pass a quality control (in our case we have eliminated approximately 16% of SNPs and 3% of individuals), resulting in a smaller number of samples to perform the analysis.
+
+With the samples that have passed the quality control, we have carried out an association study in order to find those polymorphisms that could be related to AD. To do this, we have selected a significance level of 10 e-5, obtaining the following SNPs: **rs4953672, rs4247181, rs4472075, rs793291, rs4693092, rs17027976, rs17028008, rs12512622, rs1421761, rs1012 995**.
+
+Furthermore, with these polymorphisms we have generated a risk score that could be applied to people with AD or in previous stages of the disease in order to predict the development of the disease and be able to stop its progression.
+
+To conclude, it would be necessary to investigate more about these polymorphisms by carrying out additional studies besides computational ones, to have more information about their behavior.
+
+
+
+## APPENDIX
+
+![Sex discordancies](Sex discordancies.png){width=50%}
+![Ancestry PCA](Ancestry PCA Plot.png){width=50%}
+
+![Polymorphisms Table](PolyTable.png)
+
+

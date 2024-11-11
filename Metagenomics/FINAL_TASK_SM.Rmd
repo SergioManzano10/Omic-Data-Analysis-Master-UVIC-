@@ -1,0 +1,320 @@
+---
+title: "Final Assignment Applications -- Metagenomics"
+author: "Sergio Manzano"
+date: "2023-12-20"
+output: pdf_document
+---
+
+```{r setup, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(phyloseq)
+library(cowplot)
+library(ggplot2)
+library(ggpubr)
+library(vegan)
+```
+
+### **1. ps_WGS.RData**
+
+The phyloseq object ‘ps_WGS.RData’ was obtained from a whole genome shotgun sequencing experiment of human vaginal microbiome samples by Metaphlan3. Samples were obtained from healthy women and patients with bacterial vaginosis (BV) from different medical centers. The goal of this analysis is to characterize and explore potential differences in composition and diversity at the species-level of vaginal microbiome samples.
+
+Prepare the set working directory
+```{r }
+code_path <- ("C:/OMIC_DATA_ANALYSIS/APPLICATIONS_METAGENOMICS/7_Tarea_SergioManzano")
+setwd(code_path)
+
+file_name <- "ps_WGS.RData"
+RData <-load(file.path(code_path, file_name))
+```
+
+Inspect the phyloseq object and metadata
+```{r}
+#View(ps_WGS)
+head(ps_WGS@sam_data)
+
+length(unique(ps_WGS@sam_data$Status))
+unique(ps_WGS@sam_data$Status)
+```
+
+The phyloseq object ‘ps_WGS.RData’ has been normalized to relative abundance (percentage). Further normalization is not required.
+
+**Q1: Generate a stacked barplot for each sample within the ‘BV’ and ‘Healthy’ status groups to show bacterial composition at the species-level (plot only top 20 most abundant species) and discuss global differences in the bacterial dominance between the two groups.**
+
+The contrasting prevalence of *Gardnerella vaginalis* in the BV group and *Lactobacillus crispatus* in the healthy group highlights significant differences in bacterial compositions between the two groups. This differences in the main species suggests a potential microbial imbalance linked with BV, where *Gardnerella vaginalis* becomes more prevalent, compared to a healthier state where  *Lactobacillus crispatus* seems to dominate. These variations in bacterial dominance signify clear microbial profiles and could potentially contribute to the pathophysiology or preservation of health.
+
+The calculated mean abundances demonstarate significant differences in dominant species between the BV and Healthy groups. *Gardnerella vaginalis* appears to exhibit a significantly higher average abundance in the BV group, while *Lactobacillus crispatus* displays a considerably higher average abundance in the Healthy group. This contrast emphasizes the distinct microbial profiles associated with BV and Healthy states, where *Gardnerella vaginalis* predominance signifies an imbalance linked to BV, contrasting with *Lactobacillus crispatus* dominance, indicating a healthier microbial composition.
+
+```{r, fig.align='center',fig.show="hold"}
+# Taxonomic grouping at the species level
+top20 <- tax_glom(ps_WGS, taxrank = "Species", NArm = FALSE)
+
+# Identifying top 20 species by abundance
+top20_names <- names(sort(taxa_sums(top20), decreasing = TRUE)[1:20])
+
+# Subset to include only top 20 species
+ps_top20 <- prune_taxa(top20_names, top20)
+
+# Reshaping data for plotting
+order_melt <- psmelt(ps_top20)
+
+#Barplot
+ggplot(order_melt, aes(x = Sample, y = Abundance * 100)) +
+  geom_bar(aes(fill = Species), stat = "identity", position = "stack") +
+  ylab("Relative Abundance") +
+  facet_wrap(~Status, scales = "free_x", nrow=1, ncol=2) +
+  xlab("Samples") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+        axis.text = element_text(colour = "black"),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.3,"cm")) 
+
+# Calculating mean abundance per Species and Status
+aggregate(Abundance*100 ~Species+Status, order_melt, mean)
+```
+
+**Q2: Create boxplots to compare the abundance of 10 most abundant bacterial species in the vaginal microbiota between ‘BV’ and ‘Healthy’ status and display the corresponding p-values in the plot. Also, indicate if a clear dominance is observed in the two groups.** 
+
+Based on the boxplots the conclusions that we can provide are:
+
+- *Gardanerella vaginalis* and *Lactobacillus crispatus* are the most significant ones with a p-value of 6.2e-14 both of them. On one hand, *Gardnerella vaginalis* has a significantly higher abundance in the 'BV' group compared to the 'Healthy' group. On the other hand, *Lactobacillus crispatus* it's the other way round, has a significantly higher abundance in the 'Healthy' group compared to the 'BV' group.
+
+- There's no significant difference in the abundance of *Lactobacillus iners* between the 'BV' and 'Healthy' groups. We can see that in the 0.2 p-value (not significant).
+
+- And *Atopobium vaginae, Prevotella bivia, Prevotella amnii, BVAB1, Prevotella buccalis, Prevotella timonensis, and Lactobacillus jenseni*, all of these species show highly significant differences in abundance between the 'BV' and 'Healthy' groups with p-values less than 0.05 (we can see it better with **** or *** significance in the next chunk of code).
+
+In summary, *Gardnerella vaginalis* and *Lactobacillus crispatus* shows contrasting dominance between the 'BV' and 'Healthy' groups, with significant differences in their abundances. 
+Furthermore, numerous other species has notable variations in abundance, suggesting dissimilar microbial compositions within the vaginal microbiota among the two groups.
+
+```{r, fig.align='center',fig.show="hold"}
+# Calculate abundance at the species level
+top10 <- tax_glom(ps_WGS, "Species", NArm = FALSE)
+
+# Identify the top 10 most abundant species
+top10OTU_names <- names(sort(taxa_sums(top10), decreasing = TRUE)[1:10])
+
+# Subset data to include only top 10 species
+ps_top10 <- prune_taxa(top10OTU_names, top10)
+species_melt <- psmelt(ps_top10)
+
+
+# Create boxplots comparing abundance between 'BV' and 'Healthy' 
+#status for each species
+ggplot(species_melt, aes(x = Status, y = Abundance*100)) +
+  geom_boxplot(aes(fill=Status))+
+  labs(title = "Top 10 Species",
+       x = "Species", y = "Abundance") +
+  facet_wrap( ~ Species, scales="free_y", nrow = 3, ncol = 4)+
+  scale_fill_manual(values = c("BV" = "#ADD8E6", "Healthy" = "#9370DB"))+
+  theme_bw() + 
+  theme(axis.text = element_text(colour = "black"), 
+        legend.position = "none", 
+        strip.text = element_text(size= 7)) +
+  stat_compare_means(paired=FALSE,label="p.format", label.y =5,size=2.5)
+
+```
+
+Since the previous graph containing the information requested in the question cannot be interpreted well and the p values cannot be seen well either since each graph has a different y-axis and therefore cannot be ordered, the following graph shows see the box plots all together on the same chart. And the table below shows the p values of the 10 species, the adjusted p value, if this p-value is significant or not marked by the number of * there are (ns= not significat) and the method that has been used (Wilcoxon) much better organized.
+
+```{r, fig.align='center',fig.show="hold"}
+# Create boxplots comparing abundance between 'BV' and 'Healthy' 
+#status for each species
+ggplot(species_melt, aes(x = Species, y = Abundance*100)) +
+  geom_boxplot(aes(fill=Status), alpha=0.7)+
+  geom_point()+
+  labs(title = "Top 10 Species",
+       x = "Status", y = "Relative Abundance") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("BV" = "#ADD8E6", "Healthy" = "#9370DB"))+
+  theme(axis.text.x = element_text(angle=45, hjust = 1, size = rel(1)))
+
+# Calculate p-values 
+compare_means(Abundance~ Status, data = species_melt, paired= FALSE, group.by = "Species")
+```
+
+
+**Q3: Run beta-diversity analysis on the full dataset (all species-level) using PCoA/Bray-Curtis distances (set sample-color by ‘Status’ and shape by ‘Medical_center’) and perform a PERMANOVA test (adonis or adonis2 function on Bray-curtis distances, package::vegan) to estimate if factors ‘Status’ and ‘Medical_center’ have a significant impact on sample clustering based on the microbiome structure**
+
+First of all, plotting PCoA with set sample-color by ‘Status’ and shape by ‘Medical_center’, using PCoA/Bray-Curtis distances, we see a clear difference distribution of the two status; the healthy one is near the negative Axis 1 (-0.5), while the Axis 2 is near the positive Axis 1 (0.5); and from here both are distributed at that point and move along the y axis (axis 2).
+
+Next, perform a permutation multivariate analysis of variance (PERMANOVA) test.
+It is highlighted here that while 'Status' has a significant impact on how samples are clusted based on their microbiome structure, it has a low p-value= 0.001 and is also marked ***, suggesting a strong contribution to differences in microbial composition across samples. And it's also highlighted the variable 'Medical_center' that doesn't reveal a statistical significal, with a higher p-value=0.688. This implies that the difference medical centers might not significantly impact the observed variation  in microbial composition observed between samples.
+
+```{r, fig.align='center',fig.show="hold"}
+#PCoA using Bray-Curtis Distances
+bray_pcoa <- ordinate(physeq = ps_WGS, method = "PCoA", distance = "bray")
+
+#Plotting PCoA with Color and Shape Mappings
+plot_ordination(physeq = ps_WGS, ordination = bray_pcoa, 
+                color = "Status", shape = "Medical_center") +
+  scale_color_manual(values = c("#ADD8E6", "#9370DB")) +
+  scale_shape_manual(values = c(1, 2, 8)) +
+  geom_point(size = 4) +
+  theme_bw()
+
+# Perform PERMANOVA test
+perma_bray <- phyloseq::distance(ps_WGS, method="bray")
+sampledf <- data.frame(sample_data(ps_WGS))
+adonis2(perma_bray~Status+ Medical_center, data=sampledf)
+
+```
+
+### **2. ps_16S.RData**
+
+The phyloseq object ‘ps_16S.RData’ and ‘track.txt’ file were obtained from an Illumina/MiSeq sequencing experiment (V3-V4 region within the 16S rRNA gene) and following DADA2 analysis of fecal samples collected from male mice at baseline (day 0, d0), 2 weeks after antibiotic treatment (w2) and 4 weeks after antibiotic treatment (w4). The goal of this analysis is to evaluate potential changes induced by antibiotic treatment in the mouse gut microbiota at different timepoints.
+
+Prepare the set working directory
+```{r}
+code_path <- ("C:/OMIC_DATA_ANALYSIS/APPLICATIONS_METAGENOMICS/7_Tarea_SergioManzano")
+setwd(code_path)
+
+file_name2 <- "ps_16S.RData"
+RData <-load(file.path(code_path, file_name2))
+
+```
+
+
+Inspect the phyloseq object and metadata
+```{r}
+#View(ps_16S)
+length(unique(ps_16S@sam_data$timepoint))
+unique(ps_16S@sam_data$timepoint)
+```
+
+The phyloseq object ‘ps_16S.RData’ is provided in counts. Data transformation before performing specific analyses might be needed. We get relative abundance (%) from counts
+```{r}
+ps_RA <- transform_sample_counts(ps_16S, function (x) x/sum(x))
+head(ps_RA@sam_data)
+```
+
+
+**Q1: Generate a boxplot to compare alpha diversity (Shannon index) between the mouse gut microbiota at ‘baseline’ and ‘2 weeks after antibiotic treatment’ and display the corresponding p-value in the plot.**
+
+When comparing alpha diversity, specifically the Shannon index, between the baseline and the sample two weeks after antibiotic treatment, the statistical analysis produces a highly significant p-value of 3.1e-05. This suggests that there was a significant difference in microbial diversity between these two periods.
+
+As so, it is clear that the administration of antibiotics has a substantial impact on the alpha diversity of the mouse gut microbiota. This significant change in diversity between the baseline and two weeks post-treatment period suggest a significant influence of antibiotics on the microbial composition throughout this period.
+
+```{r, fig.align='center',fig.show="hold"}
+# Filter data to include only 'baseline' and '2 weeks with treatment'
+filtered_data <- subset_samples(ps_16S, timepoint != "w4")
+
+# Rarefy the data to an even depth
+ps.rarefied = rarefy_even_depth(filtered_data, rngseed=1, 
+                sample.size=min(sample_sums(filtered_data)), replace=F)
+
+# Display the sample sums after rarefaction
+sample_sums(ps.rarefied)
+
+# Calculate alpha diversity (Shannon index)
+alpha <- as.data.frame(estimate_richness(ps.rarefied))
+
+# Extract row names from the alpha dataframe
+rownames(alpha)
+
+# Extract row names from the sample data in ps_16S
+rownames(filtered_data@sam_data)
+
+# Merge alpha diversity data with sample metadata 
+alpha_meta <- merge(alpha, filtered_data@sam_data, by = "row.names")
+
+# Reorder Timepoint factor levels in chronological order (before plotting)
+alpha_meta$timepoint <- factor(alpha_meta$timepoint, levels = c("d0", "w2"))
+
+# Create a boxplot comparing alpha diversity between 'baseline' and '2 weeks  treatment'
+ggplot(alpha_meta, aes(x = timepoint, y = Shannon)) +
+  geom_boxplot(aes(fill = timepoint), width = 0.3, alpha = 0.8) +
+  scale_fill_manual(values = c("#ADD8E6", "#9370DB")) +
+  geom_point(colour = "black", size = 1) +
+  theme_bw() + theme(legend.position = "none") + xlab("") +
+  stat_compare_means(paired = TRUE, size = 3, label = "p.format", 
+                     label.x = 2.3, label.y = max(alpha_meta$Shannon))
+```
+
+
+**Q2: Create boxplots to compare the abundance of all bacterial phyla in the mouse gut microbiota at ‘week2’ and ‘week4’ after antibiotic treatment and display the corresponding p-values in the plot. Also, indicate if a clear dominance is observed in the two groups.**
+
+Seeing the boxplots comparing the abundance of bacterial phyla in the mouse gut microbiota at week 2 and week 4 after antibiotic treatment, we can say that:
+
+- *Proteobacteria* and *Bacteroidota* show significantly different abundances between week 2 and week 4 post-treatment, with an adjusted p-value of 1.3e-05, suggesting a notable change in their prevalence over time. So, both phyla exhibit a clear dominance.
+
+- *Firmicutes, Verrucomicrobiota, Patescibacteria, Desulfobacterota, Actinobacteriota*, and *Deferribacterota* do not has statistically significant differences in abundance between week 2 and week 4 post-treatment, with an adjusted p-value 9.5e-01 (> 0.05). So, there's no clear dominance in these phyla during this specific time.
+
+- *Cyanobacteria* exhibit a moderate significance in their abundance shift between week 2 and week 4 post-treatment, with an adjusted p-value = 2.2e-01, suggesting a mild alteration, comparing with the other phyla; it doesn't have the same high dominance as *Proteobacteria* and *Bacteroidota* but it's significant.
+
+```{r, fig.align='center',fig.show="hold"}
+# Subset samples for 'w2' and 'w4' timepoints
+ps_filtered <- subset_samples(ps_RA, timepoint != "d0")
+
+# Group taxa at Phylum level without adding pseudocounts
+tax <- tax_glom(ps_filtered, taxrank = "Phylum", NArm = FALSE)
+
+# Order Phylum taxa by abundance
+phylum_ordered <- names(sort(taxa_sums(tax), decreasing = TRUE))
+
+# Prune taxa based on the ordered Phylum list
+phylum <- prune_taxa(phylum_ordered, tax)
+
+# Convert phyloseq object to a melted format
+melt_phylum <- psmelt(phylum)
+
+# Create boxplot visualization for relative abundance by timepoint and Phylum
+ggplot(melt_phylum, aes(x = Phylum, y = Abundance * 100)) +
+  geom_boxplot(aes(fill = Phylum), alpha = 0.7) +
+  geom_point() +
+  theme_bw() + ylab("Relative abundance") +
+  facet_wrap(~ timepoint, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=rel(1)))+
+  stat_compare_means(paired = FALSE, label= "p.format", 
+                     label.y =c(100,100),size=3)
+```
+
+Visually, since these graphs are distributed on different y-axes, the differences between them are not clearly visible, which is why I also put the following dataframe where all the information is collected of the p-values is better distributed and better understood.
+
+```{r, fig.align='center',fig.show="hold"}
+# Perform statistical test to compare means of abundance between timepoints and Phyla
+compare_means(Abundance ~ timepoint, data = melt_phylum, paired = FALSE, 
+              group.by = "Phylum")
+```
+
+
+**3. Using the file ‘track_16S.txt’, generate a boxplot to compare the number of filtered non-chimeric reads between ‘baseline’ and ‘2 weeks after antibiotic treatment’ and provide the corresponding p-value in the plot.**
+
+There's three forms to obtain the p-value in this case. Once we merge both dataframe we can use different functions:
+
+- For the first approach using compare_means(nonchim ~ timepoint, data = timepoint_d0_w2, paired = TRUE), the comparison of means test found significant difference between the nonchimeric readings at times 'baseline' and ‘2 weeks after antibiotic treatment’ with a p value of 0.074. This indicates that there is  enough evidence to reject the null hypothesis that there's difference in the means between the two groups.
+
+- For the second approach using the Wilcoxon test and the Shapiro-Wilk normality test, that is a more specific way to obtain the p-value of the variables. The normality test showed that the data don't follow a normal distribution with a p-value = 0.02966. So we choose a non paramentric test, since they do not follow a normal distribution of normality. The more indicated it's the Wilcoxon test also returned a p-value of  0.07391, supporting the previous conclusion that there is significant difference in non-chimeric reads between the two time periods.
+
+- And finally, the third form that we obtain the p-value it's in ggplot function using the stat_compare_means, that also see that it returns the same p-value as with the other functions, p-value = 0.074.
+
+So in conclusion, and seeing the boxplot we can say that there is significant difference in non-chimeric reads between the two time periods. In other words, the graph shows the non chimeric read not formed by the union of fragments, that we have in our samples before antibiotic treatment and two weeks after. In the baseline, where there's no treatment our count of non-chimeric reads was lower  in almost all the samples (there's an outlier), while after two weeks of treatment there is an increase in the amount of non-chimeric reads presents in our samples. This indicates that the treatment has an impact in our microbiota or to the elimination of some bacterias that decrease the quality of the readings.
+
+```{r, fig.align='center',fig.show="hold"}
+#Get the needed dataset
+track <- read.delim(file= "track_16S.txt", header = TRUE)
+head(track)
+
+#Selecting data
+timepoint_d0_w2 <- subset(track, track$timepoint != "w4")
+
+#Two forms of provide the corresponding p-value
+#1
+compare_means(nonchim ~ timepoint, data = timepoint_d0_w2, paired = TRUE) 
+
+#2
+#Function compare means
+shapiro.test(timepoint_d0_w2$nonchim) #Don't follows a normal distribution (0.02966)
+wilcox.test(timepoint_d0_w2$nonchim ~ timepoint_d0_w2$timepoint, paired = TRUE) #Corresponding test
+
+# Comparison of Non-Chimeric Reads between timepoints d0 and w2
+ggplot(timepoint_d0_w2, aes(x = timepoint, y = nonchim, fill = timepoint)) +
+  geom_boxplot(aes(fill=timepoint), width=0.3, alpha=0.8) +
+  scale_fill_manual(values=c("#ADD8E6", "#9370DB"))+
+  labs(x = "Timepoint", y = "Non-Chimeric Reads",
+       title = "Nº Non-Chimeric Reads between timepoints (d0 and w2)") +
+  theme_bw() + theme(legend.position = "none") + xlab("") +
+  stat_compare_means(paired = TRUE, size = 4, label = "p.format", 
+                     label.x = 2.3, label.y = max(timepoint_d0_w2$nonchim))
+```
+
